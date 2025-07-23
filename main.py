@@ -1,7 +1,7 @@
-import networkx as nx
 import matplotlib.pyplot as plt
+import heapq
+import networkx as nx
 
-# real lat/lon coordinates for each city
 city_coords = {
     "Seattle": (47.6062, -122.3321),
     "Rockdale": (47.3910, -121.4812),
@@ -44,71 +44,77 @@ city_coords = {
 }
 
 highway_connections = [
-    # southern route
-    ("Seattle", "Rockdale", 35),
-    ("Rockdale", "Ellensburg", 69),
-    ("Ellensburg", "Yakima", 37),
-    ("Yakima", "Kennewick", 77),
-    ("Kennewick", "Pendleton", 45),
-    ("Pendleton", "La Grande", 51),
-    ("La Grande", "Baker City", 41),
-    ("Baker City", "Ontario", 75),
-    ("Ontario", "Boise", 53),
-    ("Boise", "Mountain Home", 42),
-    ("Mountain Home", "Twin Falls", 83),
-    ("Twin Falls", "Burley", 36),
-    ("Burley", "Pocatello", 71),
-    ("Pocatello", "Idaho Falls", 50),
-    ("Idaho Falls", "Jackson", 88),
-    ("Jackson", "Pinedale", 75),
-    ("Pinedale", "Rock Springs", 98),
-    ("Rock Springs", "Rawlins", 104),
-    ("Rawlins", "Laramie", 96),
-    ("Laramie", "Cheyenne", 49),
-    ("Cheyenne", "Denver", 99),
-
-    # northern route
-    ("Ellensburg", "Vantage", 29),
-    ("Vantage", "George", 15),
-    ("George", "Ritzville", 85),
-    ("Ritzville", "Spokane", 58),
-    ("Spokane", "Pinehurst", 68),
-    ("Pinehurst", "Missoula", 163),
-    ("Missoula", "Avon", 39),
-    ("Avon", "Butte", 47),
-    ("Butte", "Bozeman", 85),
-    ("Bozeman", "Big Timber", 61),
-    ("Big Timber", "Park City", 71),
-    ("Park City", "Billings", 21),
-    ("Billings", "Sheridan", 130),
-    ("Sheridan", "Buffalo", 35),
-    ("Buffalo", "Casper", 113),
-    ("Casper", "Glendo", 70),
-    ("Glendo", "Cheyenne", 94)
+    ("Seattle", "Rockdale", 35), ("Rockdale", "Ellensburg", 69), ("Ellensburg", "Yakima", 37),
+    ("Yakima", "Kennewick", 77), ("Kennewick", "Pendleton", 45), ("Pendleton", "La Grande", 51),
+    ("La Grande", "Baker City", 41), ("Baker City", "Ontario", 75), ("Ontario", "Boise", 53),
+    ("Boise", "Mountain Home", 42), ("Mountain Home", "Twin Falls", 83), ("Twin Falls", "Burley", 36),
+    ("Burley", "Pocatello", 71), ("Pocatello", "Idaho Falls", 50), ("Idaho Falls", "Jackson", 88),
+    ("Jackson", "Pinedale", 75), ("Pinedale", "Rock Springs", 98), ("Rock Springs", "Rawlins", 104),
+    ("Rawlins", "Laramie", 96), ("Laramie", "Cheyenne", 49), ("Cheyenne", "Denver", 99),
+    ("Ellensburg", "Vantage", 29), ("Vantage", "George", 15), ("George", "Ritzville", 85),
+    ("Ritzville", "Spokane", 58), ("Spokane", "Pinehurst", 68), ("Pinehurst", "Missoula", 163),
+    ("Missoula", "Avon", 39), ("Avon", "Butte", 47), ("Butte", "Bozeman", 85), ("Bozeman", "Big Timber", 61),
+    ("Big Timber", "Park City", 71), ("Park City", "Billings", 21), ("Billings", "Sheridan", 130),
+    ("Sheridan", "Buffalo", 35), ("Buffalo", "Casper", 113), ("Casper", "Glendo", 70), ("Glendo", "Cheyenne", 94)
 ]
 
-# build graph and add edges using real distances
+# dijkstra's algorithm to find the shortest path from 'start' to 'end' in a weighted graph
+def dijkstra(graph, start, end):
+    queue = [(0, start, [])]    # initialize priority queue with (cost, current node, path so far)
+    visited = set()             # set of visited nodes
+
+    # process the queue
+    while queue:
+        (cost, node, path) = heapq.heappop(queue)  # get the node with the lowest cost
+
+        # skip if already visited
+        if node in visited:
+            continue
+
+        visited.add(node)       # mark as visited
+        path = path + [node]    # update path
+
+        # return if destination reached
+        if node == end:
+            return path, cost
+
+        # check all neighbors
+        for neighbor, weight in graph[node].items():
+            if neighbor not in visited:
+                heapq.heappush(queue, (cost + weight, neighbor, path))
+
+    # return none if no path found
+    return None, float("inf")
+
+# convert to adjacency list for graph representation
+adj_graph = {}
+for u, v, w in highway_connections:
+    adj_graph.setdefault(u, {})[v] = w
+    adj_graph.setdefault(v, {})[u] = w
+
+# run Dijkstra's algorithm
+start, end = "Seattle", "Denver"
+manual_path, manual_distance = dijkstra(adj_graph, start, end)
+
+# build visualization
 G = nx.Graph()
 G.add_nodes_from(city_coords)
 for u, v, dist in highway_connections:
     G.add_edge(u, v, weight=dist)
 
-# run Dijkstra's algorithm
-start, end = "Seattle", "Denver"
-shortest_path = nx.dijkstra_path(G, start, end)
-shortest_length = nx.dijkstra_path_length(G, start, end)
-
-# plot the graph and highlight the shortest path
+# plot cities and edges (highways)
 pos = {city: (lon, lat) for city, (lat, lon) in city_coords.items()}
+
 plt.figure(figsize=(14, 10))
 nx.draw(G, pos, with_labels=True, node_color="lightblue", edge_color="gray", node_size=500, font_size=7)
-nx.draw_networkx_edges(G, pos, edgelist=list(zip(shortest_path, shortest_path[1:])), edge_color="red", width=3)
-
+nx.draw_networkx_edges(G, pos, edgelist=list(zip(manual_path, manual_path[1:])), edge_color="red", width=3)
 edge_labels = nx.get_edge_attributes(G, "weight")
 nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=5)
 
-plt.suptitle("Shortest Path from Seattle to Denver: 1307 miles", fontsize=14, y=0.98)
+plt.suptitle(f"Shortest Path from {start} to {end}: {manual_distance} miles", fontsize=14, y=0.98)
 plt.xlabel("Longitude")
 plt.ylabel("Latitude")
-plt.subplots_adjust(top=0.93) 
+plt.subplots_adjust(top=0.93)
 plt.show()
+
+manual_path, manual_distance
